@@ -8,7 +8,7 @@ It automatically fetches audio episodes from specified RSS feeds (BBC, CNN, Appl
 
 ## ✨ Key Features
 
-* **📡 RSS Auto-Fetching**: Automatically parses RSS feeds defined in `config.yaml` and downloads the latest episodes based on your criteria.
+* **📡 RSS Auto-Fetching**: Automatically parses RSS feeds defined in `rss_config.yaml` and downloads the latest episodes based on your criteria.
 * **🧹 Smart Filename Sanitization**: Automatically cleans special characters from filenames to prevent server-side encoding errors (乱码) and extraction failures.
 * **🧠 Intelligent Uploading**:
     * **Single File Mode**: Automatically enables "AI Subtitles" and checks necessary agreements.
@@ -25,4 +25,3 @@ It automatically fetches audio episodes from specified RSS feeds (BBC, CNN, Appl
 * **Chrome / Chromium Browser** (Managed by Playwright)
 
 ---
-

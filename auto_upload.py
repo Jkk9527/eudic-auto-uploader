@@ -6,10 +6,16 @@ import re
 from contextlib import contextmanager
 from playwright.sync_api import sync_playwright
 
+# ==========================================
+# 设置 Playwright 浏览器路径（与 login.py 保持一致）
+# ==========================================
+os.environ["PLAYWRIGHT_BROWSERS_PATH"] = os.path.expanduser("~/.playwright_browsers")
+
 # ================= 配置区域 =================
 AUTH_FILE = "auth.json"
 # 导入外部配置
 from fetch_rss import HEADLESS, RSS_FEEDS, DOWNLOAD_FOLDER
+
 LOG_DIR = "logs"
 
 
@@ -33,12 +39,12 @@ class Tee:
 def log_to_file():
     """
     Mirror stdout/stderr to a timestamped log file under LOG_DIR.
-    文件名格式: mm.dd.hh.mm.txt
+    文件名格式: yymmddhhmmss.log
     """
 
     os.makedirs(LOG_DIR, exist_ok=True)
-    timestamp = time.strftime("%m.%d.%H.%M")
-    log_path = os.path.join(LOG_DIR, f"{timestamp}.txt")
+    timestamp = time.strftime("%y%m%d%H%M%S")
+    log_path = os.path.join(LOG_DIR, f"{timestamp}.log")
 
     with open(log_path, "w", encoding="utf-8") as f:
         tee = Tee(sys.stdout, f)
@@ -86,7 +92,7 @@ def run_uploader():
     print("🚀 启动浏览器进行上传...")
 
     with sync_playwright() as p:
-        # headless 由 config.yaml 控制
+        # headless 由 rss_config.yaml 控制
         browser = p.chromium.launch(headless=HEADLESS, slow_mo=1000)
         context = browser.new_context(storage_state=AUTH_FILE)
         page = context.new_page()
@@ -113,7 +119,7 @@ def run_uploader():
                 and not d.startswith(".")
             ]
 
-            # [关键修改] 自定义排序：让顺序跟 RSS_FEEDS (config.yaml) 保持一致
+            # [关键修改] 自定义排序：让顺序跟 RSS_FEEDS (rss_config.yaml) 保持一致
             # 1. 拿到配置里的顺序列表
             priority_list = list(RSS_FEEDS.keys())
 
@@ -155,6 +161,22 @@ def run_uploader():
                 except Exception as e:
                     print(f"  ⚠️  网页上找不到栏目 '{channel_name}'，跳过。")
                     continue
+
+                # 滚动到底，确保懒加载内容出现（直到高度不再增长）
+                last_height = page.evaluate(
+                    "() => document.documentElement.scrollHeight"
+                )
+                while True:
+                    page.evaluate(
+                        "() => window.scrollTo(0, document.documentElement.scrollHeight)"
+                    )
+                    page.wait_for_timeout(1000)
+                    new_height = page.evaluate(
+                        "() => document.documentElement.scrollHeight"
+                    )
+                    if new_height == last_height:
+                        break
+                    last_height = new_height
 
                 # 5. 扫描文件并比对
                 page_content = page.content()
@@ -209,7 +231,7 @@ def run_uploader():
                     print("      ⏳  等待上传成功提示...")
 
                     try:
-                        page.get_by_text("上传成功").wait_for(timeout=1800000)
+                        page.get_by_text("上传成功").wait_for(timeout=36000000)
                     except Exception as e:
                         # 【如果没等到成功，检查是不是失败了
                         if (
@@ -279,8 +301,8 @@ def run_uploader():
                     print("      ⏳  等待上传成功提示...")
 
                     try:
-                        # 尝试等待“上传成功”，超时设置为30分钟
-                        page.get_by_text("上传成功").wait_for(timeout=1800000)
+                        # 尝试等待“上传成功”，超时设置为60分钟
+                        page.get_by_text("上传成功").wait_for(timeout=3600000)
                     except Exception as e:
                         # 如果没等到成功，检查是不是失败了
                         if (
@@ -295,28 +317,28 @@ def run_uploader():
                         else:
                             raise e  # 如果不是失败（只是超时），抛出原异常
 
-                    page.wait_for_timeout(1000)  # 稍微停顿
+                    page.wait_for_timeout(5000)  # 稍微停顿
                     print("      ✅  文件传输完成")
 
                     # D. 点击下一步 (这是去第二页的关键)
                     print("      3️⃣  点击 [下一步]...")
-                    page.wait_for_timeout(1000)  # 稍微停顿
+                    page.wait_for_timeout(5000)  # 稍微停顿
                     page.get_by_text("下一步", exact=True).click()
-                    page.wait_for_timeout(1000)  # 稍微停顿
+                    page.wait_for_timeout(5000)  # 稍微停顿
 
                     # E. 第二页
                     print("      点击 我已阅读并同意")
                     page.get_by_role("checkbox", name="我已阅读并同意").check()
-                    page.wait_for_timeout(1000)  # 稍微停顿
+                    page.wait_for_timeout(5000)  # 稍微停顿
 
                     print("      准备点击 [保存] 按钮...")
                     page.get_by_role("button", name="保存").click()
-                    page.wait_for_timeout(1000)  # 稍微停顿
+                    page.wait_for_timeout(5000)  # 稍微停顿
 
                     print("      准备点击 [确定] 按钮...")
                     # page.once("dialog", lambda dialog: dialog.accept())
                     page.get_by_text("确定").click()
-                    page.wait_for_timeout(1000)  # 稍微停顿
+                    page.wait_for_timeout(5000)  # 稍微停顿
 
                     # ==================================================
                     # 7. 收尾：刷新页面

@@ -11,7 +11,27 @@ import shutil
 
 # ================= 配置加载逻辑 (Config Loading) =================
 
-CONFIG_FILE = "config.yaml"
+DEFAULT_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Chrome/120.0.0.0 Safari/537.36",
+    "Accept": "*/*",
+    "Accept-Language": "en-US,en;q=0.9",
+}
+
+
+def _as_bool(val, default=False):
+    """Config-friendly bool: accepts bool/int and common true/false strings."""
+    if isinstance(val, bool):
+        return val
+    if isinstance(val, int):
+        return bool(val)
+    if isinstance(val, str):
+        norm = val.strip().lower()
+        if norm in {"true", "1", "yes", "on"}:
+            return True
+        if norm in {"false", "0", "no", "off"}:
+            return False
+    return default
+CONFIG_FILE = "rss_config.yaml"
 
 
 def load_config():
@@ -43,9 +63,9 @@ YEAR_FROM = _config.get("year_from", 2025)
 YEAR_END = _config.get("year_end", 9999)
 LATEST_NUM = _config.get("latest_num", 2)
 DOWNLOAD_FOLDER = _config.get("download_folder", "rss_download")
-HEADLESS = _config.get("headless", False)
-ENABLE_FETCH = _config.get("enable_fetch", True)
-ENABLE_UPLOAD = _config.get("enable_upload", True)
+HEADLESS = _as_bool(_config.get("headless", False), False)
+ENABLE_FETCH = _as_bool(_config.get("enable_fetch", True), True)
+ENABLE_UPLOAD = _as_bool(_config.get("enable_upload", True), True)
 
 # ================= 工具函数 =================
 
@@ -111,7 +131,9 @@ def parse_rss(url):
     return rows
 
 
-def download_audios(rows, subfolder, year_from_limit, year_end_limit, num_limit):
+def download_audios(
+    rows, subfolder, year_from_limit, year_end_limit, num_limit, referer=None
+):
     """
     下载逻辑：接收 year_from_limit/year_end_limit 和 num_limit 参数，不再依赖全局变量
     """
@@ -141,8 +163,12 @@ def download_audios(rows, subfolder, year_from_limit, year_end_limit, num_limit)
             continue
 
         print(f"Downloading → {fname}")
+        headers = DEFAULT_HEADERS.copy()
+        if referer:
+            headers["Referer"] = referer
+
         try:
-            resp = requests.get(item["链接"], stream=True, timeout=60)
+            resp = requests.get(item["链接"], stream=True, timeout=60, headers=headers)
             resp.raise_for_status()
             with open(dest, "wb") as f:
                 for chunk in resp.iter_content(8192):
@@ -190,6 +216,11 @@ def fetch_rss_main(
         f"=== 开始 RSS 下载任务 (年份范围 {year_to_use} - {year_end_to_use}, 数量={num_to_use}) ==="
     )
 
+    # Add this check before the for loop
+    if feeds_to_use is None:
+        print("❌ 错误: 未找到 RSS 订阅源配置")
+        return
+
     for name, url in feeds_to_use.items():
         print(f"\n📥 处理 {name} ...")
         data = parse_rss(url)
@@ -211,6 +242,7 @@ def fetch_rss_main(
             year_from_limit=year_to_use,
             year_end_limit=year_end_to_use,
             num_limit=num_to_use,
+            referer=url,
         )
         print(f"✅ {name} 处理完成")
 
