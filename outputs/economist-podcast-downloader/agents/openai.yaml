@@ -1,0 +1,4 @@
+interface:
+  display_name: "Economist Podcast Downloader"
+  short_description: "Download Economist podcast audio from logged-in Chrome"
+  default_prompt: "Use $economist-podcast-downloader to download the latest Drum Tower podcast audio from my logged-in Chrome session."

@@ -15,8 +15,16 @@ env/
 
 # 【核心】忽略敏感数据和下载文件
 auth.json
+economist_auth.json
+auth/
+economist_runtime/
+work/
 rss_download/
 *.mp3
+*.mp4
+*.m4a
+*.aac
+*.webm
 *.zip
 *.xlsx
 

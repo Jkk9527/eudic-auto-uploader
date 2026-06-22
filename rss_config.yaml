@@ -1,41 +1,37 @@
 # ================= RSS 下载配置 =================
 
-# 注意：rss_feeds 下面的 Key (例如 "Six Minute English") 必须与每日英语听力网页左侧的栏目名完全一致
-# 格式: 栏目名: RSS链接
+# 注意：rss_feeds 下面的 Key 必须与每日英语听力网页左侧栏目名一致
 rss_feeds:
-  # Six Minute English: "https://podcasts.files.bbci.co.uk/p02pc9tn.rss"
-  # Classic Stories: "https://podcasts.files.bbci.co.uk/p02pc9s1.rss"
-  # Bedtime History: "https://feeds.megaphone.fm/TNM4740080425"
-  # What in the World : "https://podcasts.files.bbci.co.uk/w13xtvrv.rss"
-  # Learning English from the News: "https://podcasts.files.bbci.co.uk/p05hw4bq.rss"
-  # Chinese Folk Tales: "https://cgtn-radio-data.cgtn.com/rss/programother/129"
-  # The Global Story: "https://podcasts.files.bbci.co.uk/w13xtvsd.rss"
-  #Curious Kids Every Day: "https://rss.libsyn.com/shows/576495/destinations/4993010.xml"
-  # KidNuz: "https://feeds.megaphone.fm/STM6212107967"
-  # CNN 10: "https://feeds.megaphone.fm/WMHY2232473209"
-  # Apple News Today: "https://apple.news/podcast/apple_news_today"
-  # GLOBAL NEWS PODCAST: "https://podcasts.files.bbci.co.uk/p02nq0gn.rss"
-  # Makers and Shakers of Chinese History: "https://feeds.acast.com/public/shows/5f900534c5d2200138d64fe1"
-  # Stuff You Missed in Chinese History: "https://feeds.acast.com/public/shows/605bf284026a3549580582ff"    
-  # Greeking Out from National Geographic Kids : "https://feeds.megaphone.fm/ESP4751925729"
-  
-
+  Six Minute English: https://podcasts.files.bbci.co.uk/p02pc9tn.rss
+  Classic Stories: https://podcasts.files.bbci.co.uk/p02pc9s1.rss
+  Bedtime History: https://feeds.megaphone.fm/TNM4740080425
+  What in the World: https://podcasts.files.bbci.co.uk/w13xtvrv.rss
+  Learning English from the News: https://podcasts.files.bbci.co.uk/p05hw4bq.rss
+  Learning English Conversations: https://podcasts.files.bbci.co.uk/p02pc9zn.rss
+  Chinese Folk Tales: https://cgtn-radio-data.cgtn.com/rss/programother/129
+  # The Global Story: https://podcasts.files.bbci.co.uk/w13xtvsd.rss
+  # Curious Kids Every Day: https://rss.libsyn.com/shows/576495/destinations/4993010.xml
+  # KidNuz: https://feeds.megaphone.fm/STM6212107967
+  # CNN 10: https://feeds.megaphone.fm/WMHY2232473209
+  # Apple News Today: https://apple.news/podcast/apple_news_today
+  # GLOBAL NEWS PODCAST: https://podcasts.files.bbci.co.uk/p02nq0gn.rss
+  # Makers and Shakers of Chinese History: https://feeds.acast.com/public/shows/5f900534c5d2200138d64fe1
+  # Stuff You Missed in Chinese History: https://feeds.acast.com/public/shows/605bf284026a3549580582ff
+  # Greeking Out from National Geographic Kids: https://feeds.megaphone.fm/ESP4751925729
+  Witness History: https://podcasts.files.bbci.co.uk/p004t1hd.rss
+  Learning English For Work: https://podcasts.files.bbci.co.uk/p0h6ffwg.rss
 
 # Playwright 浏览器是否无头运行 (true = 不显示 Chromium 窗口)
-headless: 0
+headless: true
 
-# 控制是否执行下载/上传
-enable_fetch: true
-enable_upload: true
-
-# 起始年份 (含)，与 year_end 一起限定下载范围
+# 起始年份 (含)
 year_from: 2026
 
-# 下载最新的几个 (-1 代表下载所有，正整数代表只下载最新的 N 个)
-latest_num: -1
+# 下载最新数量 (-1 表示全部)
+latest_num: 9
 
-# 结束年份(含)。不写则使用代码默认值，不限制上限。
+# 结束年份 (含)
 year_end: 2026
 
-# 下载文件保存的主目录
+# 下载文件保存目录
 download_folder: "rss_download"

@@ -3,6 +3,7 @@ import sys
 import time
 import zipfile
 import re
+import traceback
 from contextlib import contextmanager
 from playwright.sync_api import sync_playwright
 
@@ -12,9 +13,9 @@ from playwright.sync_api import sync_playwright
 os.environ["PLAYWRIGHT_BROWSERS_PATH"] = os.path.expanduser("~/.playwright_browsers")
 
 # ================= 配置区域 =================
-AUTH_FILE = "auth.json"
+AUTH_FILE = "auth/eudic_auth.json"
 # 导入外部配置
-from fetch_rss import HEADLESS, RSS_FEEDS, DOWNLOAD_FOLDER
+from download import HEADLESS, RSS_FEEDS, DOWNLOAD_FOLDER
 
 LOG_DIR = "logs"
 
@@ -96,16 +97,21 @@ def run_uploader():
         browser = p.chromium.launch(headless=HEADLESS, slow_mo=1000)
         context = browser.new_context(storage_state=AUTH_FILE)
         page = context.new_page()
+        current_step = "初始化浏览器"
+        current_channel = "-"
+        current_file = "-"
 
         try:
             print("🌍 打开后台管理页面...")
+            current_step = "打开后台管理页面"
             page.goto("http://my.eudic.net/Ting/index")
+            current_step = "等待后台页面加载完成"
             page.wait_for_load_state("networkidle")
 
             # 1. 检查下载主目录是否存在
             if not os.path.exists(DOWNLOAD_FOLDER):
                 print(
-                    f"❌ 下载主目录 [{DOWNLOAD_FOLDER}] 不存在，无法开始。请先运行 fetch_rss.py 下载音频。"
+                    f"❌ 下载主目录 [{DOWNLOAD_FOLDER}] 不存在，无法开始。请先运行 download.py 下载音频。"
                 )
                 return
 
@@ -147,6 +153,8 @@ def run_uploader():
 
             # 3. 遍历每个本地频道
             for channel_name in local_channels:
+                current_channel = channel_name
+                current_file = "-"
 
                 local_dir = os.path.join(DOWNLOAD_FOLDER, channel_name)
 
@@ -155,14 +163,12 @@ def run_uploader():
                 page.wait_for_timeout(2000)  # 稍微停顿
 
                 # 4. 在网页左侧点击栏目
-                try:
-                    page.get_by_text(channel_name, exact=False).first.click()
-                    page.wait_for_timeout(5000)  # 等待右侧刷新
-                except Exception as e:
-                    print(f"  ⚠️  网页上找不到栏目 '{channel_name}'，跳过。")
-                    continue
+                current_step = f"点击左侧栏目 [{channel_name}]"
+                page.get_by_text(channel_name, exact=False).first.click()
+                page.wait_for_timeout(5000)  # 等待右侧刷新
 
                 # 滚动到底，确保懒加载内容出现（直到高度不再增长）
+                current_step = f"栏目 [{channel_name}] 页面滚动到底加载懒加载内容"
                 last_height = page.evaluate(
                     "() => document.documentElement.scrollHeight"
                 )
@@ -170,7 +176,7 @@ def run_uploader():
                     page.evaluate(
                         "() => window.scrollTo(0, document.documentElement.scrollHeight)"
                     )
-                    page.wait_for_timeout(1000)
+                    page.wait_for_timeout(2000)
                     new_height = page.evaluate(
                         "() => document.documentElement.scrollHeight"
                     )
@@ -179,6 +185,8 @@ def run_uploader():
                     last_height = new_height
 
                 # 5. 扫描文件并比对
+                page.wait_for_timeout(8000)
+                current_step = f"栏目 [{channel_name}] 扫描页面并比对本地文件"
                 page_content = page.content()
                 all_files = sorted(
                     [f for f in os.listdir(local_dir) if f.endswith(".mp3")]
@@ -217,18 +225,26 @@ def run_uploader():
                     upload_path = files_to_upload[0]
 
                     fname_record = os.path.basename(upload_path)
+                    current_file = fname_record
                     upload_summary.append(f"单文件：[{channel_name}] {fname_record}")
 
                     # A. 点击上传按钮
                     print("      1️⃣  点击 [上传听力]...")
+                    current_step = f"栏目 [{channel_name}] 点击[上传听力]按钮（单文件）"
                     page.get_by_role("button", name=re.compile("上传听力")).click()
 
                     # B. 填入文件
                     print(f"      2️⃣  填入文件: {os.path.basename(upload_path)}")
+                    current_step = (
+                        f"栏目 [{channel_name}] 选择上传文件 [{fname_record}]"
+                    )
                     page.locator("input[type='file']").set_input_files(upload_path)
 
                     # C. 等待上传进度条走完
                     print("      ⏳  等待上传成功提示...")
+                    current_step = (
+                        f"栏目 [{channel_name}] 等待文件 [{fname_record}] 上传成功"
+                    )
 
                     try:
                         page.get_by_text("上传成功").wait_for(timeout=36000000)
@@ -253,25 +269,31 @@ def run_uploader():
                     # D. 点击下一步 (这是去第二页的关键)
                     print("      3️⃣  点击 [下一步]...")
                     page.wait_for_timeout(1000)  # 稍微停顿
+                    current_step = f"栏目 [{channel_name}] 点击[下一步]（单文件）"
                     page.get_by_text("下一步", exact=True).click()
                     page.wait_for_timeout(1000)  # 稍微停顿
 
                     # E. 第二页
                     print("      点击 生成AI字幕")
+                    current_step = f"栏目 [{channel_name}] 勾选[生成AI字幕]"
                     page.get_by_role("radio", name="生成AI字幕").check()
-                    page.wait_for_timeout(1000)  # 稍微停顿
+                    page.wait_for_timeout(4000)  # 稍微停顿
 
                     print("      点击 我已阅读并同意")
+                    current_step = (
+                        f"栏目 [{channel_name}] 勾选[我已阅读并同意]（单文件）"
+                    )
                     page.get_by_role("checkbox", name="我已阅读并同意").check()
-                    page.wait_for_timeout(1000)  # 稍微停顿
+                    page.wait_for_timeout(8000)  # 稍微停顿
 
                     print("      准备点击 [保存] 按钮...")
+                    current_step = f"栏目 [{channel_name}] 点击[保存]（单文件）"
                     page.once("dialog", lambda dialog: dialog.accept())
                     page.get_by_role("button", name="保存").click()
-                    page.wait_for_timeout(3000)  # 稍微停顿
+                    page.wait_for_timeout(8000)  # 稍微停顿
 
                     print("      捕捉点击 [OK] 按钮...")
-                    page.wait_for_timeout(3000)  # 稍微停顿
+                    page.wait_for_timeout(8000)  # 稍微停顿
 
                 # 多文件上传，打包成 ZIP：
                 else:
@@ -288,17 +310,26 @@ def run_uploader():
                     zip_name = os.path.join(local_dir, "1.zip")
                     zip_files_flat(files_to_upload, zip_name)
                     upload_path = zip_name
+                    fname_record = os.path.basename(upload_path)
+                    current_file = fname_record
 
                     # A. 点击上传按钮
                     print("      1️⃣  点击 [上传听力]...")
+                    current_step = f"栏目 [{channel_name}] 点击[上传听力]按钮（ZIP）"
                     page.get_by_role("button", name=re.compile("上传听力")).click()
 
                     # B. 填入文件
                     print(f"      2️⃣  填入文件: {os.path.basename(upload_path)}")
+                    current_step = (
+                        f"栏目 [{channel_name}] 选择上传文件 [{fname_record}]"
+                    )
                     page.locator("input[type='file']").set_input_files(upload_path)
 
                     # C. 等待上传进度条走完
                     print("      ⏳  等待上传成功提示...")
+                    current_step = (
+                        f"栏目 [{channel_name}] 等待文件 [{fname_record}] 上传成功"
+                    )
 
                     try:
                         # 尝试等待“上传成功”，超时设置为60分钟
@@ -317,35 +348,41 @@ def run_uploader():
                         else:
                             raise e  # 如果不是失败（只是超时），抛出原异常
 
-                    page.wait_for_timeout(5000)  # 稍微停顿
+                    page.wait_for_timeout(8000)  # 稍微停顿
                     print("      ✅  文件传输完成")
 
                     # D. 点击下一步 (这是去第二页的关键)
                     print("      3️⃣  点击 [下一步]...")
-                    page.wait_for_timeout(5000)  # 稍微停顿
+                    page.wait_for_timeout(8000)  # 稍微停顿
+                    current_step = f"栏目 [{channel_name}] 点击[下一步]（ZIP）"
                     page.get_by_text("下一步", exact=True).click()
-                    page.wait_for_timeout(5000)  # 稍微停顿
+                    page.wait_for_timeout(8000)  # 稍微停顿
 
                     # E. 第二页
                     print("      点击 我已阅读并同意")
+                    current_step = f"栏目 [{channel_name}] 勾选[我已阅读并同意]（ZIP）"
                     page.get_by_role("checkbox", name="我已阅读并同意").check()
-                    page.wait_for_timeout(5000)  # 稍微停顿
+                    page.wait_for_timeout(8000)  # 稍微停顿
 
                     print("      准备点击 [保存] 按钮...")
+                    current_step = f"栏目 [{channel_name}] 点击[保存]（ZIP）"
                     page.get_by_role("button", name="保存").click()
-                    page.wait_for_timeout(5000)  # 稍微停顿
+                    page.wait_for_timeout(8000)  # 稍微停顿
 
                     print("      准备点击 [确定] 按钮...")
                     # page.once("dialog", lambda dialog: dialog.accept())
+                    current_step = f"栏目 [{channel_name}] 点击[确定]（ZIP）"
                     page.get_by_text("确定").click()
-                    page.wait_for_timeout(5000)  # 稍微停顿
+                    page.wait_for_timeout(8000)  # 稍微停顿
 
-                    # ==================================================
-                    # 7. 收尾：刷新页面
-                    # ==================================================
+                # ==================================================
+                # 7. 收尾：刷新页面
+                # ==================================================
                 print("      🔄  刷新页面，准备下一轮...")
+                current_step = f"栏目 [{channel_name}] 刷新页面准备下一轮"
                 page.reload()
                 page.wait_for_load_state("networkidle")
+                page.get_by_role("link", name="English 欧路词典").click()
                 page.wait_for_timeout(1000)  # 稍微停顿
 
                 upload_ops_count += 1
@@ -357,11 +394,18 @@ def run_uploader():
                     time.sleep(300)
                     print("⏰ 休息结束，准备处理下一个...")
                     # 休息久了防止页面状态失效，保险起见再刷一次
+                    current_step = "休息后刷新页面"
                     page.reload()
                     page.wait_for_load_state("networkidle")
 
         except Exception as e:
-            print(f"❌ 脚本崩溃: {e}")
+            print("❌ 脚本崩溃")
+            print(f"   栏目: {current_channel}")
+            print(f"   文件: {current_file}")
+            print(f"   步骤: {current_step}")
+            print(f"   页面: {page.url}")
+            print(f"   错误: {type(e).__name__}: {e}")
+            traceback.print_exc()
         finally:
             context.close()
             browser.close()

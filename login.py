@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
 """
-登录脚本 - 用于生成或更新 auth.json 文件
+登录脚本 - 用于生成或更新 auth/eudic_auth.json 文件
 
 当 cookie 过期时，运行此脚本重新登录。
-脚本会打开浏览器，让你手动登录，然后自动保存登录状态到 auth.json。
+脚本会打开浏览器，让你手动登录，然后自动保存登录状态到 auth/eudic_auth.json。
 """
 
 import os
 from playwright.sync_api import sync_playwright
 
 # ==========================================
-# 设置 Playwright 浏览器路径（与 rss_start.sh 保持一致）
+# 设置 Playwright 浏览器路径（与 listen_upload.sh 保持一致）
 # ==========================================
 os.environ["PLAYWRIGHT_BROWSERS_PATH"] = os.path.expanduser("~/.playwright_browsers")
 
-AUTH_FILE = "auth.json"
+AUTH_FILE = "auth/eudic_auth.json"
 TARGET_URL = "http://my.eudic.net/Ting/index"
 
 
@@ -54,6 +54,7 @@ def manual_login():
             input("\n✋ 登录完成后，请按 [回车键] 继续保存认证信息...")
 
             # 保存认证状态
+            os.makedirs(os.path.dirname(AUTH_FILE), exist_ok=True)
             print(f"\n💾 正在保存认证信息到 {AUTH_FILE}...")
             context.storage_state(path=AUTH_FILE)
             print(f"✅ 认证信息已保存!")
